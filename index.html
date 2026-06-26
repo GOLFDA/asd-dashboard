@@ -518,27 +518,40 @@ function fetchJSONP(url) {
   });
 }
 
-async function fetchData(url) {
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+  ]);
+}
+
+async function fetchData(url, statusEl) {
+  const set = (msg) => { if (statusEl) statusEl.textContent = msg; };
+
   // 1. Try direct fetch
+  set('กำลังเชื่อมต่อ API...');
   try {
-    const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(8000) });
+    const r = await withTimeout(fetch(url, { redirect: 'follow' }), 6000);
     const t = await r.text();
     if (t && t.trim()) return parseResponse(t);
   } catch(_) {}
 
-  // 2. Try JSONP (works well with Google Apps Script)
-  try { return await fetchJSONP(url); } catch(_) {}
+  // 2. Try JSONP
+  set('กำลังลอง JSONP...');
+  try { return await withTimeout(fetchJSONP(url), 6000); } catch(_) {}
 
-  // 3. Try CORS proxies in sequence
-  for (const proxy of PROXIES) {
+  // 3. Try proxies
+  const proxyNames = ['allorigins', 'corsproxy.io', 'codetabs'];
+  for (let i = 0; i < PROXIES.length; i++) {
+    set(`กำลังลอง proxy ${proxyNames[i]}...`);
     try {
-      const r = await fetch(proxy(url), { signal: AbortSignal.timeout(10000) });
+      const r = await withTimeout(fetch(PROXIES[i](url)), 8000);
       const t = await r.text();
       if (t && t.trim()) return parseResponse(t);
     } catch(_) {}
   }
 
-  throw new Error('Failed to fetch (ลองทุก proxy แล้ว — ตรวจสอบการตั้งค่า Apps Script)');
+  throw new Error('เชื่อมต่อไม่ได้ทุกช่องทาง — ตรวจสอบ Apps Script deployment');
 }
 }
 
@@ -711,10 +724,11 @@ async function loadPanel(key, forceRefresh) {
   const btn = document.querySelector(`#panel-${key} .btn-refresh`);
 
   if (btn) btn.classList.add('spinning');
-  tableEl.innerHTML = `<div class="state-box"><div class="spinner"></div><p>กำลังโหลดข้อมูล...</p></div>`;
+  tableEl.innerHTML = `<div class="state-box"><div class="spinner"></div><p id="status-${key}">กำลังโหลดข้อมูล...</p></div>`;
+  const statusEl = document.getElementById('status-' + key);
 
   try {
-    const raw = await fetchData(APIS[key]);
+    const raw = await fetchData(APIS[key], statusEl);
 
     if (typeof raw === 'string') {
       // Try to extract table from HTML first
