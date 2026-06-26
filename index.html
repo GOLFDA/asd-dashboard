@@ -489,17 +489,27 @@ function switchTab(name, btn) {
 }
 
 /* ──────────────────────────────────────────────
-   FETCH HELPER
+   FETCH HELPER  (tries direct → CORS proxy)
 ────────────────────────────────────────────── */
-async function fetchData(url) {
-  const res = await fetch(url, { redirect: 'follow', mode: 'cors' });
+const PROXY = 'https://corsproxy.io/?url=';
+
+async function tryFetch(url) {
+  const res = await fetch(url, { redirect: 'follow' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
   const text = await res.text();
-  // try JSON
   try { return JSON.parse(text); } catch(_) {}
-  // try extracting JSON from HTML (Apps Script sometimes wraps it)
   const match = text.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
   if (match) { try { return JSON.parse(match[1]); } catch(_) {} }
-  return text; // raw HTML fallback
+  return text;
+}
+
+async function fetchData(url) {
+  try {
+    return await tryFetch(url);
+  } catch(e) {
+    // fallback: CORS proxy
+    return await tryFetch(PROXY + encodeURIComponent(url));
+  }
 }
 
 /* ──────────────────────────────────────────────
