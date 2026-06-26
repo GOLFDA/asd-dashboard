@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASD - ระบบติดตามงาน</title>
+  <style>
+    :root {
+      --blue-dark:  #0d2b6b;
+      --blue-mid:   #1a4faf;
+      --blue-light: #2d7dd2;
+      --blue-pale:  #e8f1fb;
+      --white:      #ffffff;
+      --gray-100:   #f4f6fa;
+      --gray-200:   #e2e8f0;
+      --gray-400:   #94a3b8;
+      --gray-600:   #475569;
+      --gray-800:   #1e293b;
+      --accent:     #f59e0b;
+      --success:    #10b981;
+      --danger:     #ef4444;
+      --shadow-sm:  0 1px 3px rgba(0,0,0,0.10);
+      --shadow-md:  0 4px 16px rgba(13,43,107,0.12);
+      --radius:     12px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Noto Sans Thai', Arial, sans-serif;
+      background: var(--gray-100);
+      color: var(--gray-800);
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ─────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, var(--blue-dark) 0%, var(--blue-mid) 60%, var(--blue-light) 100%);
+      color: var(--white);
+      padding: 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(13,43,107,0.25);
+    }
+
+    .header-inner {
+      max-width: 1400px;
+      margin: auto;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo-circle {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      border: 2px solid rgba(255,255,255,0.4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 900;
+      letter-spacing: 1px;
+      flex-shrink: 0;
+    }
+
+    .header-text h1 {
+      font-size: clamp(1.1rem, 3vw, 1.5rem);
+      font-weight: 800;
+      letter-spacing: 2px;
+    }
+    .header-text p {
+      font-size: 0.75rem;
+      opacity: 0.75;
+      margin-top: 1px;
+    }
+
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .clock {
+      font-size: 0.85rem;
+      background: rgba(255,255,255,0.12);
+      padding: 6px 12px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    /* ── TABS ────────────────────────────────── */
+    .tabs-bar {
+      background: var(--white);
+      border-bottom: 2px solid var(--gray-200);
+      position: sticky;
+      top: 76px;
+      z-index: 90;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .tabs-inner {
+      max-width: 1400px;
+      margin: auto;
+      padding: 0 16px;
+      display: flex;
+      gap: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tabs-inner::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      padding: 14px 22px;
+      border: none;
+      background: transparent;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--gray-400);
+      cursor: pointer;
+      white-space: nowrap;
+      border-bottom: 3px solid transparent;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .tab-btn:hover { color: var(--blue-light); }
+    .tab-btn.active {
+      color: var(--blue-mid);
+      border-bottom-color: var(--blue-mid);
+    }
+
+    .tab-icon { font-size: 1rem; }
+
+    .badge {
+      background: var(--blue-pale);
+      color: var(--blue-mid);
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 700;
+    }
+
+    /* ── MAIN ────────────────────────────────── */
+    main {
+      max-width: 1400px;
+      margin: 24px auto;
+      padding: 0 16px 40px;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── SECTION HEADER ──────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--blue-dark);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-refresh {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1.5px solid var(--blue-light);
+      background: var(--white);
+      color: var(--blue-light);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .2s;
+    }
+    .btn-refresh:hover {
+      background: var(--blue-light);
+      color: var(--white);
+    }
+    .btn-refresh.spinning .ico-refresh { animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── SEARCH BAR ──────────────────────────── */
+    .search-wrap {
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .search-wrap input {
+      width: 100%;
+      padding: 10px 16px 10px 40px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      background: var(--white);
+      color: var(--gray-800);
+      outline: none;
+      transition: border-color .2s;
+    }
+    .search-wrap input:focus { border-color: var(--blue-light); }
+    .search-wrap .ico-search {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray-400);
+      font-size: 1rem;
+    }
+
+    /* ── CARD / TABLE ────────────────────────── */
+    .card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.87rem;
+    }
+
+    thead tr {
+      background: linear-gradient(90deg, var(--blue-dark), var(--blue-mid));
+      color: var(--white);
+    }
+    thead th {
+      padding: 13px 16px;
+      text-align: left;
+      font-weight: 700;
+      white-space: nowrap;
+      letter-spacing: .3px;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--gray-200);
+      transition: background .15s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--blue-pale); }
+    tbody td {
+      padding: 11px 16px;
+      color: var(--gray-800);
+      vertical-align: middle;
+    }
+
+    /* ── STATUS CHIPS ────────────────────────── */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .chip-green  { background: #d1fae5; color: #065f46; }
+    .chip-yellow { background: #fef3c7; color: #92400e; }
+    .chip-red    { background: #fee2e2; color: #991b1b; }
+    .chip-blue   { background: var(--blue-pale); color: var(--blue-dark); }
+    .chip-gray   { background: var(--gray-200); color: var(--gray-600); }
+
+    /* ── LOADING / EMPTY ─────────────────────── */
+    .state-box {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--gray-400);
+    }
+    .state-box .ico-big { font-size: 3rem; margin-bottom: 12px; }
+    .state-box p { font-size: 0.9rem; margin-top: 6px; }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--gray-200);
+      border-top-color: var(--blue-light);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 0 auto 14px;
+    }
+
+    /* ── STATS CARDS ─────────────────────────── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border-top: 3px solid var(--blue-mid);
+    }
+    .stat-card .label { font-size: 0.75rem; color: var(--gray-400); font-weight: 600; }
+    .stat-card .value { font-size: 1.6rem; font-weight: 800; color: var(--blue-dark); }
+    .stat-card .sub   { font-size: 0.72rem; color: var(--gray-600); }
+
+    /* ── LAST UPDATED ────────────────────────── */
+    .last-update {
+      font-size: 0.75rem;
+      color: var(--gray-400);
+      text-align: right;
+      margin-top: 10px;
+    }
+
+    /* ── FOOTER ──────────────────────────────── */
+    footer {
+      background: var(--blue-dark);
+      color: rgba(255,255,255,0.6);
+      text-align: center;
+      padding: 16px;
+      font-size: 0.78rem;
+      margin-top: 40px;
+    }
+    footer span { color: var(--white); font-weight: 700; }
+
+    /* ── MOBILE FIXES ────────────────────────── */
+    @media (max-width: 600px) {
+      .header-inner { padding: 12px 14px; gap: 12px; }
+      .logo-circle  { width: 40px; height: 40px; font-size: 14px; }
+      .clock        { display: none; }
+      .tab-btn      { padding: 12px 14px; font-size: 0.8rem; }
+      main          { padding: 0 12px 40px; margin-top: 16px; }
+      thead th, tbody td { padding: 10px 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ────────────────────────────────── -->
+<header>
+  <div class="header-inner">
+    <div class="logo-circle">ASD</div>
+    <div class="header-text">
+      <h1>ASD</h1>
+      <p>ระบบรวมข้อมูล · Automated Service Dashboard</p>
+    </div>
+    <div class="header-right">
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+  </div>
+</header>
+
+<!-- ── TABS ──────────────────────────────────── -->
+<div class="tabs-bar">
+  <div class="tabs-inner">
+    <button class="tab-btn active" onclick="switchTab('ac',this)">
+      <span class="tab-icon">❄️</span> AC Status
+      <span class="badge" id="badge-ac">—</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('claim',this)">
+      <span class="tab-icon">📦</span> เคลมพัสดุ
+      <span class="badge" id="badge-claim">—</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('track',this)">
+      <span class="tab-icon">📋</span> ติดตามงาน
+      <span class="badge" id="badge-track">—</span>
+    </button>
+  </div>
+</div>
+
+<!-- ── MAIN ───────────────────────────────────── -->
+<main>
+
+  <!-- ── PANEL 1 : AC STATUS ─────────────────── -->
+  <div class="panel active" id="panel-ac">
+    <div class="section-header">
+      <div class="section-title">❄️ AC Status </div>
+      <button class="btn-refresh" onclick="loadAC(true)">
+        <span class="ico-refresh">🔄</span> รีเฟรช
+      </button>
+    </div>
+    <div class="stats-row" id="stats-ac"></div>
+    <div class="search-wrap">
+      <span class="ico-search">🔍</span>
+      <input type="text" id="search-ac" placeholder="ค้นหา..." oninput="filterTable('ac')">
+    </div>
+    <div class="card">
+      <div class="table-wrap" id="table-ac">
+        <div class="state-box"><div class="spinner"></div><p>กำลังโหลดข้อมูล...</p></div>
+      </div>
+    </div>
+    <p class="last-update" id="upd-ac"></p>
+  </div>
+
+  <!-- ── PANEL 2 : เคลมพัสดุ ─────────────────── -->
+  <div class="panel" id="panel-claim">
+    <div class="section-header">
+      <div class="section-title">📦 สถานภาพเคลมพัสดุ</div>
+      <button class="btn-refresh" onclick="loadClaim(true)">
+        <span class="ico-refresh">🔄</span> รีเฟรช
+      </button>
+    </div>
+    <div class="stats-row" id="stats-claim"></div>
+    <div class="search-wrap">
+      <span class="ico-search">🔍</span>
+      <input type="text" id="search-claim" placeholder="ค้นหา..." oninput="filterTable('claim')">
+    </div>
+    <div class="card">
+      <div class="table-wrap" id="table-claim">
+        <div class="state-box"><div class="spinner"></div><p>กำลังโหลดข้อมูล...</p></div>
+      </div>
+    </div>
+    <p class="last-update" id="upd-claim"></p>
+  </div>
+
+  <!-- ── PANEL 3 : ติดตามงาน ─────────────────── -->
+  <div class="panel" id="panel-track">
+    <div class="section-header">
+      <div class="section-title">📋 ติดตามงาน แผนกควบคุม</div>
+      <button class="btn-refresh" onclick="loadTrack(true)">
+        <span class="ico-refresh">🔄</span> รีเฟรช
+      </button>
+    </div>
+    <div class="stats-row" id="stats-track"></div>
+    <div class="search-wrap">
+      <span class="ico-search">🔍</span>
+      <input type="text" id="search-track" placeholder="ค้นหา..." oninput="filterTable('track')">
+    </div>
+    <div class="card">
+      <div class="table-wrap" id="table-track">
+        <div class="state-box"><div class="spinner"></div><p>กำลังโหลดข้อมูล...</p></div>
+      </div>
+    </div>
+    <p class="last-update" id="upd-track"></p>
+  </div>
+
+</main>
+
+<footer>
+  © 2026 <span>ASD</span> · Automated Service Dashboard · พัฒนาโดยทีม ASD
+</footer>
+
+<script>
+/* ──────────────────────────────────────────────
+   CONFIG
+────────────────────────────────────────────── */
+const APIS = {
+  ac:    'https://script.google.com/macros/s/AKfycbzKDro7xqLj2IRvIOji0jq4dkCQZJjRiRiQAuTov3e_At3-KALQyHpj3QTwZi6exWoa/exec',
+  claim: 'https://script.google.com/macros/s/AKfycbxXl7qMIy7f14Hy6qnyVIYyDIDvHJ0n8vYBs5YHpmRxpHdIO-x8Ln5_fFQ1OovrVgUv/exec',
+  track: 'https://script.google.com/macros/s/AKfycbxhKJj6s7bnrU9cppix5LvOa3KBu_3FMiep3Qh-vtMMfWrwYmYKkKmB7ohuRd8nooU/exec'
+};
+
+/* raw data stores */
+const DATA = { ac: [], claim: [], track: [] };
+
+/* ──────────────────────────────────────────────
+   CLOCK
+────────────────────────────────────────────── */
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('th-TH', { hour12: false }) + ' น.';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ──────────────────────────────────────────────
+   TABS
+────────────────────────────────────────────── */
+function switchTab(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+/* ──────────────────────────────────────────────
+   FETCH HELPER
+────────────────────────────────────────────── */
+async function fetchData(url) {
+  const res = await fetch(url, { redirect: 'follow', mode: 'cors' });
+  const text = await res.text();
+  // try JSON
+  try { return JSON.parse(text); } catch(_) {}
+  // try extracting JSON from HTML (Apps Script sometimes wraps it)
+  const match = text.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
+  if (match) { try { return JSON.parse(match[1]); } catch(_) {} }
+  return text; // raw HTML fallback
+}
+
+/* ──────────────────────────────────────────────
+   STATUS CHIP HELPER
+────────────────────────────────────────────── */
+function chipify(val) {
+  if (val === undefined || val === null || val === '') return '<span class="chip chip-gray">—</span>';
+  const s = String(val).toLowerCase().trim();
+  let cls = 'chip-gray';
+  if (/เสร็จ|สำเร็จ|ok|done|complete|ปกติ|ใช้งาน|active|พร้อม/.test(s)) cls = 'chip-green';
+  else if (/รอ|pending|ดำเนินการ|ระหว่าง|process|progress/.test(s))     cls = 'chip-yellow';
+  else if (/ไม่|error|fail|ผิด|เสีย|breakdown|cancel/.test(s))           cls = 'chip-red';
+  else if (/ส่ง|claim|เคลม|new|ใหม่/.test(s))                            cls = 'chip-blue';
+  return `<span class="chip ${cls}">${val}</span>`;
+}
+
+/* decide whether a column should be rendered as chip */
+const STATUS_KEYS = /สถานะ|status|state|สภาพ|ผล|result|ประเภท|type/i;
+
+/* ──────────────────────────────────────────────
+   BUILD TABLE FROM ARRAY-OF-OBJECTS
+────────────────────────────────────────────── */
+function buildTable(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const first = rows.find(r => typeof r === 'object' && r !== null && !Array.isArray(r));
+  if (!first) return null;
+  const headers = Object.keys(first);
+  let html = '<table><thead><tr>' +
+    headers.map(h => `<th>${h}</th>`).join('') +
+    '</tr></thead><tbody>';
+  rows.forEach(row => {
+    if (typeof row !== 'object' || row === null) return;
+    html += '<tr>' + headers.map(h => {
+      const v = row[h] !== undefined ? row[h] : '';
+      return `<td>${STATUS_KEYS.test(h) ? chipify(v) : escHtml(String(v))}</td>`;
+    }).join('') + '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+/* build table from array-of-arrays */
+function buildTable2D(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return null;
+  const [header, ...rows] = arr;
+  if (!Array.isArray(header)) return null;
+  let html = '<table><thead><tr>' +
+    header.map(h => `<th>${escHtml(String(h))}</th>`).join('') +
+    '</tr></thead><tbody>';
+  rows.forEach(row => {
+    html += '<tr>' + header.map((h, i) => {
+      const v = row[i] !== undefined ? row[i] : '';
+      return `<td>${STATUS_KEYS.test(h) ? chipify(v) : escHtml(String(v))}</td>`;
+    }).join('') + '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ──────────────────────────────────────────────
+   RENDER HTML FALLBACK (iframe)
+────────────────────────────────────────────── */
+function renderHtml(html) {
+  return `<iframe srcdoc="${html.replace(/"/g,'&quot;')}"
+    style="width:100%;height:500px;border:none;" loading="lazy"></iframe>`;
+}
+
+/* ──────────────────────────────────────────────
+   STATS ROW
+────────────────────────────────────────────── */
+function buildStats(key, rows) {
+  const el = document.getElementById('stats-' + key);
+  if (!Array.isArray(rows) || rows.length === 0) { el.innerHTML = ''; return; }
+
+  // Try to find a status column
+  const first = rows.find(r => typeof r === 'object' && r !== null);
+  if (!first) { el.innerHTML = ''; return; }
+  const cols = Object.keys(first);
+  const statusCol = cols.find(c => STATUS_KEYS.test(c));
+
+  let cards = `<div class="stat-card">
+    <div class="label">ทั้งหมด</div>
+    <div class="value">${rows.length}</div>
+    <div class="sub">รายการ</div>
+  </div>`;
+
+  if (statusCol) {
+    const counts = {};
+    rows.forEach(r => {
+      const v = r[statusCol] || 'ไม่ระบุ';
+      counts[v] = (counts[v] || 0) + 1;
+    });
+    Object.entries(counts).slice(0, 4).forEach(([k, v]) => {
+      cards += `<div class="stat-card">
+        <div class="label">${k}</div>
+        <div class="value">${v}</div>
+        <div class="sub">รายการ</div>
+      </div>`;
+    });
+  }
+  el.innerHTML = cards;
+}
+
+/* ──────────────────────────────────────────────
+   FILTER (search)
+────────────────────────────────────────────── */
+function filterTable(key) {
+  const q = document.getElementById('search-' + key).value.toLowerCase().trim();
+  const rows = DATA[key];
+  if (!Array.isArray(rows)) return;
+  const filtered = q ? rows.filter(r =>
+    JSON.stringify(r).toLowerCase().includes(q)
+  ) : rows;
+  renderRows(key, filtered);
+}
+
+function renderRows(key, rows) {
+  const el = document.getElementById('table-' + key);
+  let html = buildTable(rows);
+  if (!html) html = buildTable2D(rows);
+  if (html) {
+    el.innerHTML = html;
+  } else {
+    el.innerHTML = `<div class="state-box"><div class="ico-big">📭</div><p>ไม่พบข้อมูลที่ตรงกัน</p></div>`;
+  }
+}
+
+/* ──────────────────────────────────────────────
+   LOAD FUNCTIONS
+────────────────────────────────────────────── */
+async function loadPanel(key, forceRefresh) {
+  const tableEl = document.getElementById('table-' + key);
+  const btn = document.querySelector(`#panel-${key} .btn-refresh`);
+
+  if (btn) btn.classList.add('spinning');
+  tableEl.innerHTML = `<div class="state-box"><div class="spinner"></div><p>กำลังโหลดข้อมูล...</p></div>`;
+
+  try {
+    const raw = await fetchData(APIS[key]);
+
+    if (typeof raw === 'string') {
+      // HTML response — render in iframe
+      tableEl.innerHTML = renderHtml(raw);
+      document.getElementById('badge-' + key).textContent = '✓';
+    } else if (Array.isArray(raw)) {
+      DATA[key] = raw;
+      document.getElementById('badge-' + key).textContent = raw.length;
+      buildStats(key, raw);
+      renderRows(key, raw);
+    } else if (raw && typeof raw === 'object') {
+      // might be { data: [...], ... }
+      const arr = raw.data || raw.rows || raw.items || raw.result || raw.results || Object.values(raw).find(v => Array.isArray(v));
+      if (arr) {
+        DATA[key] = arr;
+        document.getElementById('badge-' + key).textContent = arr.length;
+        buildStats(key, arr);
+        renderRows(key, arr);
+      } else {
+        // just show as single-row table
+        const single = [raw];
+        DATA[key] = single;
+        document.getElementById('badge-' + key).textContent = 1;
+        buildStats(key, single);
+        renderRows(key, single);
+      }
+    } else {
+      throw new Error('Unexpected data format');
+    }
+
+    const now = new Date().toLocaleString('th-TH', { hour12: false });
+    document.getElementById('upd-' + key).textContent = 'อัปเดตล่าสุด: ' + now + ' น.';
+
+  } catch (err) {
+    tableEl.innerHTML = `<div class="state-box">
+      <div class="ico-big">⚠️</div>
+      <strong>ไม่สามารถโหลดข้อมูลได้</strong>
+      <p style="font-size:0.8rem;margin-top:8px;color:#94a3b8">${err.message || err}</p>
+      <p style="font-size:0.78rem;margin-top:6px">กรุณาตรวจสอบการเชื่อมต่อหรือสิทธิ์ API</p>
+    </div>`;
+    document.getElementById('badge-' + key).textContent = '!';
+  } finally {
+    if (btn) btn.classList.remove('spinning');
+  }
+}
+
+const loadAC    = (f) => loadPanel('ac', f);
+const loadClaim = (f) => loadPanel('claim', f);
+const loadTrack = (f) => loadPanel('track', f);
+
+/* ──────────────────────────────────────────────
+   INIT — load all panels on startup
+────────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', () => {
+  loadAC();
+  loadClaim();
+  loadTrack();
+});
+</script>
+</body>
+</html>
