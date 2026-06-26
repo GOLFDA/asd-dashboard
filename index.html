@@ -489,27 +489,57 @@ function switchTab(name, btn) {
 }
 
 /* ──────────────────────────────────────────────
-   FETCH HELPER  (tries direct → CORS proxy)
+   FETCH HELPER  (direct → JSONP → proxies)
 ────────────────────────────────────────────── */
-const PROXY = 'https://corsproxy.io/?url=';
+const PROXIES = [
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+];
 
-async function tryFetch(url) {
-  const res = await fetch(url, { redirect: 'follow' });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const text = await res.text();
+function parseResponse(text) {
   try { return JSON.parse(text); } catch(_) {}
-  const match = text.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
-  if (match) { try { return JSON.parse(match[1]); } catch(_) {} }
+  const m = text.match(/(\[[\s\S]*?\]|\{[\s\S]*?\})/);
+  if (m) { try { return JSON.parse(m[1]); } catch(_) {} }
   return text;
 }
 
+/* JSONP for Google Apps Script */
+function fetchJSONP(url) {
+  return new Promise((resolve, reject) => {
+    const cb = '_cb' + Date.now();
+    const s = document.createElement('script');
+    const timer = setTimeout(() => { cleanup(); reject(new Error('JSONP timeout')); }, 8000);
+    function cleanup() { clearTimeout(timer); delete window[cb]; if (s.parentNode) s.parentNode.removeChild(s); }
+    window[cb] = (data) => { cleanup(); resolve(data); };
+    s.onerror = () => { cleanup(); reject(new Error('JSONP error')); };
+    s.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+    document.head.appendChild(s);
+  });
+}
+
 async function fetchData(url) {
+  // 1. Try direct fetch
   try {
-    return await tryFetch(url);
-  } catch(e) {
-    // fallback: CORS proxy
-    return await tryFetch(PROXY + encodeURIComponent(url));
+    const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(8000) });
+    const t = await r.text();
+    if (t && t.trim()) return parseResponse(t);
+  } catch(_) {}
+
+  // 2. Try JSONP (works well with Google Apps Script)
+  try { return await fetchJSONP(url); } catch(_) {}
+
+  // 3. Try CORS proxies in sequence
+  for (const proxy of PROXIES) {
+    try {
+      const r = await fetch(proxy(url), { signal: AbortSignal.timeout(10000) });
+      const t = await r.text();
+      if (t && t.trim()) return parseResponse(t);
+    } catch(_) {}
   }
+
+  throw new Error('Failed to fetch (ลองทุก proxy แล้ว — ตรวจสอบการตั้งค่า Apps Script)');
+}
 }
 
 /* ──────────────────────────────────────────────
@@ -574,11 +604,43 @@ function escHtml(s) {
 }
 
 /* ──────────────────────────────────────────────
+   PARSE HTML TABLE → array of objects
+────────────────────────────────────────────── */
+function parseHtmlTable(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  if (/accounts\.google\.com|sign.?in/i.test(doc.title || '')) return null;
+  const tables = doc.querySelectorAll('table');
+  if (!tables.length) return null;
+  let best = null, bestRows = 0;
+  tables.forEach(t => { if (t.rows.length > bestRows) { best = t; bestRows = t.rows.length; } });
+  if (!best || best.rows.length < 2) return null;
+  const headers = Array.from(best.rows[0].cells).map(c => c.textContent.trim());
+  const rows = [];
+  for (let i = 1; i < best.rows.length; i++) {
+    const cells = best.rows[i].cells;
+    if (!cells.length) continue;
+    const obj = {};
+    headers.forEach((h, j) => { obj[h || ('col'+(j+1))] = cells[j] ? cells[j].textContent.trim() : ''; });
+    rows.push(obj);
+  }
+  return rows.length ? rows : null;
+}
+
+/* ──────────────────────────────────────────────
    RENDER HTML FALLBACK (iframe)
 ────────────────────────────────────────────── */
 function renderHtml(html) {
+  if (/accounts\.google\.com|sign.?in/i.test(html)) {
+    return `<div class="state-box"><div class="ico-big">🔒</div>
+      <strong>ต้องการสิทธิ์เข้าถึง</strong>
+      <p style="margin-top:8px;font-size:0.82rem">
+        ไปที่ Apps Script → Deploy → Manage deployments<br>
+        ตั้ง <b>Who has access: Anyone</b> (ไม่ใช่ "with Google account")
+      </p></div>`;
+  }
   return `<iframe srcdoc="${html.replace(/"/g,'&quot;')}"
-    style="width:100%;height:500px;border:none;" loading="lazy"></iframe>`;
+    style="width:100%;min-height:600px;border:none;display:block;" loading="lazy"></iframe>`;
 }
 
 /* ──────────────────────────────────────────────
@@ -655,9 +717,17 @@ async function loadPanel(key, forceRefresh) {
     const raw = await fetchData(APIS[key]);
 
     if (typeof raw === 'string') {
-      // HTML response — render in iframe
-      tableEl.innerHTML = renderHtml(raw);
-      document.getElementById('badge-' + key).textContent = '✓';
+      // Try to extract table from HTML first
+      const parsed = parseHtmlTable(raw);
+      if (parsed) {
+        DATA[key] = parsed;
+        document.getElementById('badge-' + key).textContent = parsed.length;
+        buildStats(key, parsed);
+        renderRows(key, parsed);
+      } else {
+        tableEl.innerHTML = renderHtml(raw);
+        document.getElementById('badge-' + key).textContent = '✓';
+      }
     } else if (Array.isArray(raw)) {
       DATA[key] = raw;
       document.getElementById('badge-' + key).textContent = raw.length;
